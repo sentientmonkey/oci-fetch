@@ -103,7 +103,7 @@ func (of *OCIFetcher) Fetch(u *URL, outputDir string) error {
 
 	// download all of the layers into the blobs directory, displaying progress
 	// bars for the user
-	cpp := &progressutil.CopyProgressPrinter{}
+	cpp := progressutil.NewCopyProgressPrinter()
 	layers := removeDuplicateLayers(manifest.Layers)
 
 	var doneChans []chan error
