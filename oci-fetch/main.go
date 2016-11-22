@@ -30,6 +30,8 @@ import (
 )
 
 var (
+	username                        string
+	password                        string
 	flagDebug                       bool
 	flagInsecureAllowHTTP           bool
 	flagInsecureSkipTLSVerification bool
@@ -43,6 +45,8 @@ var (
 )
 
 func init() {
+	cmdOCIFetch.PersistentFlags().StringVar(&username, "username", "", "username for pull")
+	cmdOCIFetch.PersistentFlags().StringVar(&password, "password", "", "password for pull")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagDebug, "debug", false, "print out debugging information to stderr")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagInsecureAllowHTTP, "insecure-allow-http", false, "don't enforce encryption when fetching images")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagInsecureSkipTLSVerification, "insecure-skip-tls-verification", false, "don't perform TLS certificate verification")
@@ -77,7 +81,7 @@ func runOCIFetch(cmd *cobra.Command, args []string) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	of := lib.NewOCIFetcher("", "", flagInsecureAllowHTTP, flagInsecureSkipTLSVerification, flagDebug)
+	of := lib.NewOCIFetcher(username, password, flagInsecureAllowHTTP, flagInsecureSkipTLSVerification, flagDebug)
 	err = of.Fetch(u, tmpDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
