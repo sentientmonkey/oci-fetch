@@ -16,6 +16,7 @@ package main
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -23,6 +24,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/spf13/cobra"
 
@@ -32,6 +36,7 @@ import (
 var (
 	username                        string
 	password                        string
+	flagPromptCredentials           bool
 	flagDebug                       bool
 	flagInsecureAllowHTTP           bool
 	flagInsecureSkipTLSVerification bool
@@ -47,6 +52,7 @@ var (
 func init() {
 	cmdOCIFetch.PersistentFlags().StringVar(&username, "username", "", "username for pull")
 	cmdOCIFetch.PersistentFlags().StringVar(&password, "password", "", "password for pull")
+	cmdOCIFetch.PersistentFlags().BoolVar(&flagPromptCredentials, "prompt-credentials", false, "prompt for username and password for pull")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagDebug, "debug", false, "print out debugging information to stderr")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagInsecureAllowHTTP, "insecure-allow-http", false, "don't enforce encryption when fetching images")
 	cmdOCIFetch.PersistentFlags().BoolVar(&flagInsecureSkipTLSVerification, "insecure-skip-tls-verification", false, "don't perform TLS certificate verification")
@@ -81,6 +87,14 @@ func runOCIFetch(cmd *cobra.Command, args []string) {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	if flagPromptCredentials {
+		err = readCredentials(&username, &password)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	of := lib.NewOCIFetcher(username, password, flagInsecureAllowHTTP, flagInsecureSkipTLSVerification, flagDebug)
 	err = of.Fetch(u, tmpDir)
 	if err != nil {
@@ -106,6 +120,45 @@ func runOCIFetch(cmd *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+}
+
+func readCredentials(username, password *string) error {
+	reader := bufio.NewReader(os.Stdin)
+
+	if *username != "" {
+		fmt.Printf("username [%s]:", *username)
+	} else {
+		fmt.Print("username: ")
+	}
+
+	readUsername, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	readUsername = strings.TrimSpace(readUsername)
+
+	if readUsername != "" {
+		*username = readUsername
+	}
+
+	if *password != "" {
+		fmt.Print("password [*]: ")
+	} else {
+		fmt.Print("password: ")
+	}
+
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return err
+	}
+	readPassword := string(bytePassword)
+	readPassword = strings.TrimSpace(readPassword)
+
+	if readPassword != "" {
+		*password = readPassword
+	}
+
+	return nil
 }
 
 func newWalkFn(parentDir string, tw *tar.Writer) filepath.WalkFunc {
